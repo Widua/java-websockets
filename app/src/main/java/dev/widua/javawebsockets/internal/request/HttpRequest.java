@@ -5,14 +5,26 @@ import dev.widua.javawebsockets.internal.headers.Headers;
 public class HttpRequest {
 	private StatusLine statusLine;
 	private Headers headers;
-	private Byte[] body;
+	private byte[] body;
 
-	public StatusLine getStatusLine() {
-		return statusLine;
+	public HttpRequest() {
+		this.headers = new Headers();
 	}
 
-	public void setStatusLine(StatusLine statusLine) {
-		this.statusLine = statusLine;
+	public String getMethod() {
+		return statusLine.method();
+	}
+
+	public String getTarget() {
+		return statusLine.target();
+	}
+
+	public String getVersion() {
+		return statusLine.Version();
+	}
+
+	public void setStatusLine(String method, String target, String version) {
+		this.statusLine = new StatusLine(method, target, version);
 	}
 
 	public Headers getHeaders() {
@@ -23,11 +35,11 @@ public class HttpRequest {
 		this.headers = headers;
 	}
 
-	public Byte[] getBody() {
+	public byte[] getBody() {
 		return body;
 	}
 
-	public void setBody(Byte[] body) {
+	public void setBody(byte[] body) {
 		this.body = body;
 	}
 
