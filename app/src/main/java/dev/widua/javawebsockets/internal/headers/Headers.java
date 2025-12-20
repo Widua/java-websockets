@@ -1,7 +1,7 @@
 package dev.widua.javawebsockets.internal.headers;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -24,17 +24,17 @@ public class Headers {
 	public String get(String key) {
 		Objects.requireNonNull(key, "Key shouldn't be null");
 
-		return headers.get(key);
+		return headers.getOrDefault(key, "");
 	}
 
-	public void write(BufferedWriter writer) throws IOException {
+	public void write(OutputStream out) throws IOException {
 
 		for (var entrySet : headers.entrySet()) {
 			var headerLine = String.format("%s: %s%s", entrySet.getKey(), entrySet.getValue(), CRLF);
-			writer.write(headerLine);
+			out.write(headerLine.getBytes());
 		}
 
-		writer.write(CRLF);
-		writer.flush();
+		out.write(CRLF.getBytes());
+		out.flush();
 	}
 }

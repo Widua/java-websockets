@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 
-class RequestParser {
+public class RequestParser {
 
 	private ParsingState state;
+	private Integer readToIndex = 0;
 	private final String CRLF = "\r\n";
 
 	public RequestParser() {
@@ -14,22 +15,63 @@ class RequestParser {
 	}
 
 	public HttpRequest parse(InputStream input) throws IOException {
-		var rawData = input.readAllBytes();
 		var req = new HttpRequest();
+		var buff = new byte[2048];
+		readToIndex = 0;
 
 		while (state != ParsingState.PARSING_BODY) {
+			int crlfPos = findCRLF(buff);
+			if (crlfPos == -1) {
+				if (readToIndex >= buff.length) {
+					buff = Arrays.copyOf(buff, buff.length * 2);
+				}
+				int read = input.read(buff, readToIndex, buff.length - readToIndex);
+				if (read == -1)
+					break;
+				readToIndex += read;
+				continue;
+			}
 
-			var crlfPos = findCRLF(rawData);
-			if (crlfPos == -1 || crlfPos == 0) {
+			byte[] line = Arrays.copyOfRange(buff, 0, crlfPos);
+
+			int bytesConsumed = crlfPos + CRLF.length();
+			int remainingInBuff = readToIndex - bytesConsumed;
+			System.arraycopy(buff, bytesConsumed, buff, 0, remainingInBuff);
+			readToIndex = remainingInBuff;
+
+			if (line.length == 0 && state == ParsingState.PARSING_HEADERS) {
 				state = ParsingState.PARSING_BODY;
-				rawData = Arrays.copyOfRange(rawData, CRLF.length(), rawData.length);
 				break;
 			}
-			parseLine(Arrays.copyOfRange(rawData, 0, crlfPos), req);
-			rawData = Arrays.copyOfRange(rawData, crlfPos + CRLF.length(), rawData.length);
+			parseLine(line, req);
 		}
-		parseLine(rawData, req);
+
+		String cl = req.getHeaders().get("Content-Length");
+		if (cl != "") {
+			int length = Integer.parseInt(cl.trim());
+			byte[] body = new byte[length];
+
+			int bytesFromBuff = Math.min(readToIndex, length);
+			System.arraycopy(buff, 0, body, 0, bytesFromBuff);
+
+			if (bytesFromBuff < length) {
+				input.readNBytes(body, bytesFromBuff, length - bytesFromBuff);
+			}
+			req.setBody(body);
+			state = ParsingState.DONE;
+		}
 		return req;
+	}
+
+	private byte[] readToBuffer(InputStream input, byte[] buff) throws IOException {
+		var readed = input.read(buff, readToIndex, buff.length - readToIndex);
+
+		if (readed == -1) {
+			state = ParsingState.DONE;
+		}
+		readToIndex += readed;
+
+		return buff;
 	}
 
 	private void parseLine(byte[] data, HttpRequest req) {
