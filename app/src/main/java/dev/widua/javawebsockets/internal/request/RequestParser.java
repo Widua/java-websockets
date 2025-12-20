@@ -7,7 +7,6 @@ import java.util.Arrays;
 public class RequestParser {
 
 	private ParsingState state;
-	private Integer readToIndex = 0;
 	private final String CRLF = "\r\n";
 
 	public RequestParser() {
@@ -16,15 +15,16 @@ public class RequestParser {
 
 	public HttpRequest parse(InputStream input) throws IOException {
 		var req = new HttpRequest();
-		var buff = new byte[2048];
-		readToIndex = 0;
+		var buff = new byte[32];
+		var readToIndex = 0;
 
 		while (state != ParsingState.PARSING_BODY) {
-			int crlfPos = findCRLF(buff);
+			int crlfPos = findCRLF(buff, readToIndex);
 			if (crlfPos == -1) {
 				if (readToIndex >= buff.length) {
 					buff = Arrays.copyOf(buff, buff.length * 2);
 				}
+
 				int read = input.read(buff, readToIndex, buff.length - readToIndex);
 				if (read == -1)
 					break;
@@ -63,17 +63,6 @@ public class RequestParser {
 		return req;
 	}
 
-	private byte[] readToBuffer(InputStream input, byte[] buff) throws IOException {
-		var readed = input.read(buff, readToIndex, buff.length - readToIndex);
-
-		if (readed == -1) {
-			state = ParsingState.DONE;
-		}
-		readToIndex += readed;
-
-		return buff;
-	}
-
 	private void parseLine(byte[] data, HttpRequest req) {
 		switch (state) {
 			case INITIALIZED -> {
@@ -98,8 +87,8 @@ public class RequestParser {
 		}
 	}
 
-	private int findCRLF(byte[] data) {
-		for (int i = 0; i < data.length - 1; i++) {
+	private int findCRLF(byte[] data, int readToIndex) {
+		for (int i = 0; i < readToIndex - 1; i++) {
 			if (data[i] == '\r' && data[i + 1] == '\n') {
 				return i;
 			}
