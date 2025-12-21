@@ -25,14 +25,19 @@ public class WebsocketHandler implements Runnable {
 		try {
 			var req = parser.parse(input);
 			System.out.println("Request parsed");
+			if (req.getTarget().equals("/")) {
+				ResponseSender.homePage(output);
+
+			}
 			if (!req.getTarget().equals("/ws")) {
 				ResponseSender.defaultErrorResponse(output, "This project only support websocket");
 			}
+			System.out.println(req);
+
 
 		} catch (IOException ex) {
 			ResponseSender.defaultErrorResponse(output, ex.getMessage());
 		}
 
 	}
-
 }

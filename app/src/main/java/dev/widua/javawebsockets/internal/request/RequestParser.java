@@ -46,7 +46,7 @@ public class RequestParser {
 			parseLine(line, req);
 		}
 
-		String cl = req.getHeaders().get("Content-Length");
+		var cl = req.getHeaders().get("Content-Length");
 		if (cl != "") {
 			int length = Integer.parseInt(cl.trim());
 			byte[] body = new byte[length];

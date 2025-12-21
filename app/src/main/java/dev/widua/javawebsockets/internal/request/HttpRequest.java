@@ -9,6 +9,7 @@ public class HttpRequest {
 
 	public HttpRequest() {
 		this.headers = new Headers();
+		this.body = new byte[0];
 	}
 
 	public String getMethod() {
@@ -44,5 +45,15 @@ public class HttpRequest {
 	}
 
 	private record StatusLine(String method, String target, String Version) {
+		@Override
+		public final String toString() {
+			return String.format("%s %s %s", method, target, Version);
+		}
 	}
+
+	@Override
+	public String toString() {
+		return String.format("%s\n%s\n%s", statusLine.toString(), headers.toString(), new String(body));
+	}
+
 }

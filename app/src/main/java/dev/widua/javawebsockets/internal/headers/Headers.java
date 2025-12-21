@@ -5,6 +5,7 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.Map.Entry;
 
 public class Headers {
 	private static final String CRLF = "\r\n";
@@ -16,7 +17,7 @@ public class Headers {
 
 	public void put(String key, String value) {
 		Objects.requireNonNull(key, "Key shouldn't be null");
-		Objects.requireNonNullElse(key, "Value shouldn't be null");
+		Objects.requireNonNull(value, "Value shouldn't be null");
 
 		headers.put(key, value);
 	}
@@ -36,5 +37,15 @@ public class Headers {
 
 		out.write(CRLF.getBytes());
 		out.flush();
+	}
+
+	@Override
+	public String toString() {
+		var sb = new StringBuilder();
+		for (Entry<String, String> entrySet : headers.entrySet()) {
+			sb.append(String.format("%s:%s\n", entrySet.getKey(), entrySet.getValue()));
+
+		}
+		return sb.toString();
 	}
 }
