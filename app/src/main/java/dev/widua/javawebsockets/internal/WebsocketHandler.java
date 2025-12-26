@@ -1,83 +1,92 @@
 package dev.widua.javawebsockets.internal;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.Arrays;
-
 import dev.widua.javawebsockets.internal.request.RequestParser;
 import dev.widua.javawebsockets.internal.response.ResponseSender;
+import dev.widua.javawebsockets.internal.response.WebsocketResponseSender;
+
+import java.io.*;
+import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.util.UUID;
 
 public class WebsocketHandler implements Runnable {
-    private InputStream input;
-    private OutputStream output;
-    private RequestParser parser;
+    private final InputStream input;
+    private final OutputStream output;
+    private final RequestParser parser;
+    private final WebsocketResponseSender websocketResponse;
 
     public WebsocketHandler(Socket connection) throws IOException {
-        input = connection.getInputStream();
-        output = connection.getOutputStream();
+        this.input = connection.getInputStream();
+        this.output = connection.getOutputStream();
         this.parser = new RequestParser();
+        this.websocketResponse = new WebsocketResponseSender(output);
     }
 
-    private void pingControlFrame() {
-        try {
-            output.write(new byte[]{
-                    (byte) 0x89,0x00
-			});
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void pongControlFrame() {
-        try {
-            output.write(new byte[]{
-                    (byte) 0x8A,0x00
-			});
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void closeControlFrame() {
-        try {
-            output.write(new byte[]{
-                    (byte) 0x88,0x00
-			});
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void listenOnWebsockets() throws IOException{
+    private void listenOnWebsockets() throws IOException {
 
         while (true) {
-
             var frameBuf = input.readNBytes(2);
 
-            System.out.println(frameBuf[0]);
-
             var frameType = frameBuf[0] & 0x0F;
-            var dataLength = frameBuf[1] & 0x0F;
+            long dataLength = frameBuf[1] & 0x7F;
+
+            if (dataLength == 127) {
+                var extendedLen = input.readNBytes(8);
+                ByteBuffer bb = ByteBuffer.allocate(Long.BYTES);
+                bb.put(extendedLen);
+                dataLength = bb.getShort();
+            }
+            if (dataLength == 126) {
+                var extendedLen = input.readNBytes(2);
+                ByteBuffer bb = ByteBuffer.allocate(Short.BYTES);
+                bb.put(extendedLen);
+                dataLength = bb.getLong();
+            }
+            var masked = ((frameBuf[1] & 0x80)) != 0;
+            var maskKey = new byte[4];
+
+            if (masked) {
+                maskKey = input.readNBytes(4);
+            }
+            var payloadData = input.readNBytes((int) dataLength);
+
+            for (int i = 0; i < payloadData.length; i++) {
+                payloadData[i] = (byte) (payloadData[i] ^ maskKey[i % 4]);
+            }
 
             switch (frameType) {
                 case 0x1 -> {
-                    System.out.println();
+                    System.out.println("Data: " + new String(payloadData));
+                    websocketResponse.sendMessage("Message received", true);
                 }
                 case 0x2 -> {
+                    var fname = saveBinary(payloadData);
+                    System.out.println("Binary saved to file: " + fname);
 
                 }
                 case 0x8 -> {
+                    websocketResponse.closeControlFrame();
                     return;
                 }
                 case 0x9 -> {
-                    pongControlFrame();
+                    websocketResponse.closeControlFrame();
                 }
             }
 
         }
 
+    }
+
+    private String saveBinary(byte[] binary) throws IOException {
+        String fname = UUID.randomUUID() + ".png";
+        var file = new File(fname);
+        file.createNewFile();
+
+        var fos = new FileOutputStream(file);
+        fos.write(binary);
+        fos.flush();
+        fos.close();
+        return fname;
     }
 
     @Override
@@ -86,15 +95,16 @@ public class WebsocketHandler implements Runnable {
         try {
             var req = parser.parse(input);
             System.out.println("Request parsed");
+            if (!req.getMethod().equalsIgnoreCase("GET")) {
+                ResponseSender.defaultErrorResponse(output, "Only GET is supported");
+            }
             if (req.getTarget().equals("/")) {
                 ResponseSender.homePage(output);
             }
-			if (req.getTarget().equals("/ws")) {
-			ResponseSender.websocketHandshake(output, req);
-            listenOnWebsockets();
-			closeControlFrame();
-			}
-
+            if (req.getTarget().equals("/ws")) {
+                ResponseSender.websocketHandshake(output, req);
+                listenOnWebsockets();
+            }
 
         } catch (IOException ex) {
             ResponseSender.defaultErrorResponse(output, ex.getMessage());

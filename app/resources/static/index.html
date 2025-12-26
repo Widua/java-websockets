@@ -3,21 +3,23 @@
 
 
 <head>
-	<title>Websocket test</title>
+    <title>Websocket test</title>
 </head>
 
 <script>
-	const wsuri = "ws://localhost:42069/ws";
-	const websockets = new WebSocket(wsuri);
-	websockets.onclose = () => {console.log("Connection closed")}
-	websockets.onmessage = (msg) => {console.log("Message: "+msg.data)}
+    const wsuri = "ws://localhost:42069/ws";
+    const websockets = new WebSocket(wsuri);
+    websockets.onclose = () => {
+        console.log("Connection closed")
+    }
+    websockets.onmessage = (msg) => {
+        console.log("Message: " + msg.data)
+    }
 
-	websockets.onopen = () => {
-		console.log("Connection opened!");
-		websockets.send("Hello World!");
-	}
-
-
+    websockets.onopen = () => {
+        console.log("Connection opened!");
+        websockets.send("Hello World!");
+    }
 
 
 </script>
