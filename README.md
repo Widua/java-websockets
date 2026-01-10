@@ -9,4 +9,5 @@ Main source is RFC6455
 - [x] Handling text, and binary incoming messages
 - [x] Handling text, and binary responses
 - [x] Handling masking, and unmasking operations on payload
-- [ ] Handling saving binary files in multiple formats(mainly graphics [png,gif,jpeg etc.]) 
+
+
